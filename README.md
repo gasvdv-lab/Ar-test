@@ -1,37 +1,29 @@
-# ARCube50cm
+# Ar-test v0.1.1 — WebXR Diagnose
 
-Minimale WebXR-test om via GitHub Pages op Android een kubus van exact **50 × 50 × 50 cm** in de echte omgeving te plaatsen.
+Deze release is een diagnoseversie voor:
 
-## Wat deze versie doet
+https://gasvdv-lab.github.io/Ar-test/
 
-- start een `immersive-ar` WebXR-sessie;
-- gebruikt hit testing om een echt oppervlak te zoeken;
-- toont een reticle op het gevonden oppervlak;
-- plaatst bij tikken één kubus van **0,5 m × 0,5 m × 0,5 m**;
-- zet het middelpunt 0,25 m omhoog, zodat de onderzijde van de kubus op het oppervlak rust;
-- opnieuw tikken verplaatst dezelfde kubus.
+## Doel
 
-## Publiceren op GitHub Pages
+Achterhalen waarom de knop START AR uitgeschakeld blijft.
 
-1. Maak een nieuwe GitHub-repository, bijvoorbeeld `ARCube50cm`.
-2. Pak de ZIP uit en upload **alle bestanden rechtstreeks in de root** van de repository.
-3. Ga in GitHub naar **Settings → Pages**.
-4. Kies bij *Build and deployment* voor **Deploy from a branch**.
-5. Selecteer `main` en `/ (root)`.
-6. Open daarna de GitHub Pages-URL op de Androidtelefoon.
+De pagina controleert:
 
-Voor repository `gasvdv-lab/ARCube50cm` wordt de gebruikelijke URL:
+- HTTPS / secure context
+- `navigator.xr`
+- WebGL2
+- `navigator.xr.isSessionSupported("immersive-ar")`
+- browser/user-agent
+- directe `requestSession("immersive-ar")`
+- foutnaam en foutmelding wanneer starten mislukt
 
-`https://gasvdv-lab.github.io/ARCube50cm/`
+## Installeren
 
-## Techniek
+Vervang de huidige bestanden in de root van de GitHub-repository `Ar-test` door de bestanden uit deze ZIP.
 
-Three.js + WebXR. De geometrie wordt aangemaakt met:
+Daarna wachten tot GitHub Pages opnieuw gedeployed is en openen:
 
-`new THREE.BoxGeometry(0.5, 0.5, 0.5)`
+https://gasvdv-lab.github.io/Ar-test/
 
-WebXR gebruikt meters als ruimtelijke eenheid, dus `0.5` staat voor 50 cm.
-
-## Vereisten
-
-De telefoon/browser moet `immersive-ar` en WebXR hit testing ondersteunen. De site moet via HTTPS draaien; GitHub Pages voldoet daaraan.
+Maak daarna een screenshot van de volledige diagnosepagina.
