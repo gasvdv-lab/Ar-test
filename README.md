@@ -1,24 +1,29 @@
-# Ar-test v0.2.1 — 5 cm AR-kubus
+# Ar-test v0.2.2 — Anchor Placement
 
-Deze versie verkleint de kubus naar exact **5 × 5 × 5 cm** en probeert hem zo stabiel mogelijk op zijn plaats te houden met een **AR-anchor** indien ondersteund.
+Doel: een kubus van exact **5 × 5 × 5 cm** zo stabiel mogelijk in de echte wereld plaatsen.
 
-## Live links
+## Belangrijkste wijziging
+
+v0.2.1 probeerde pas na plaatsing een anchor te maken.
+
+v0.2.2 probeert de anchor nu **rechtstreeks op het WebXR hit-testresultaat te maken op het moment van tikken**.
+
+Dit is de technisch correcte anchor-flow voor WebXR wanneer `XRHitTestResult.createAnchor()` beschikbaar is.
+
+## Live
 
 Gewoon:
 https://gasvdv-lab.github.io/Ar-test/
 
 Cachevrij:
-https://gasvdv-lab.github.io/Ar-test/?v=021
+https://gasvdv-lab.github.io/Ar-test/?v=022
 
-## Wat is nieuw
+## Statusmeldingen
 
-- kubusgrootte aangepast van **50 cm** naar **5 cm**
-- na plaatsing blijft de kubus op zijn plek en wordt hij niet opnieuw verplaatst
-- poging om een **anchor** te gebruiken voor extra stabiliteit
-- `local-floor` referentieruimte voor stabielere positionering
+Na plaatsing krijg je één van deze meldingen:
 
-## Plaatsing
+- `GEANKERD — kubus 5 × 5 × 5 cm.`
+- `GEEN ANCHOR API — standaard tracking blijft actief.`
+- `ANCHOR MISLUKT — standaard tracking: ...`
 
-- tik slechts één keer om de kubus te plaatsen
-- daarna blijft hij op zijn positie
-- als anchors niet beschikbaar zijn, valt de app terug op normale wereldtracking
+Als de camera tijdelijk wordt afgedekt, kan ook bij anchors de tracking tijdelijk verdwijnen. Zodra de omgeving weer herkenbaar is, kan ARCore proberen opnieuw te lokaliseren.

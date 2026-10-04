@@ -1,12 +1,13 @@
 # ROADMAP
 
-## v0.2.1
+## v0.2.2
 - 5 cm kubus
-- poging tot anchor-based stabiliteit
+- anchor rechtstreeks vanuit hit-testresultaat
+- fallback naar gewone tracking
+- expliciete anchorstatus
 
-## Volgende stappen
-- maatlabel "5 cm"
-- meerdere objecten
+## Mogelijke volgende stap
+- persistent/geospatial plaatsing
 - resetknop
-- schaduw/contactvlak
-- visuele as- of meethulp
+- meerdere anchors
+- object opslaan/herladen

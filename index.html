@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#101010">
-<title>AR Kubus 5 cm</title>
+<title>AR Kubus 5 cm — Anchor Placement</title>
 <style>
   html, body {
     margin: 0;
@@ -20,10 +20,10 @@
     z-index: 3;
     inset: 0 0 auto 0;
     padding: 16px;
-    background: linear-gradient(to bottom, rgba(0,0,0,.78), rgba(0,0,0,0));
+    background: linear-gradient(to bottom, rgba(0,0,0,.82), rgba(0,0,0,0));
     pointer-events: none;
   }
-  h1 { margin: 0 0 6px; font-size: 24px; }
+  h1 { margin: 0 0 6px; font-size: 23px; }
   p { margin: 4px 0; max-width: 760px; }
   #status {
     position: fixed;
@@ -31,10 +31,11 @@
     left: 50%;
     bottom: 90px;
     transform: translateX(-50%);
+    width: max-content;
     max-width: calc(100vw - 36px);
     padding: 10px 14px;
     border-radius: 999px;
-    background: rgba(0,0,0,.72);
+    background: rgba(0,0,0,.76);
     text-align: center;
     font-size: 14px;
     pointer-events: none;
@@ -56,39 +57,48 @@
     font-size: 17px;
   }
   #start:disabled { opacity: .4; }
-  canvas { display: block; }
+  canvas { display:block; }
 </style>
 </head>
 <body>
-  <div id="ui">
-    <h1>AR Kubus — 5 cm</h1>
-    <p>Exact 0,05 × 0,05 × 0,05 m.</p>
-    <p>Start AR, beweeg rustig over de vloer en tik om de kubus te plaatsen. De app probeert een AR-anchor te gebruiken zodat de kubus zo stabiel mogelijk blijft staan.</p>
-  </div>
+<div id="ui">
+  <h1>AR Kubus — 5 cm</h1>
+  <p>v0.2.2 Anchor Placement</p>
+  <p>Tik één keer op een gedetecteerd oppervlak. De app probeert de kubus rechtstreeks aan het hit-testresultaat te ankeren.</p>
+</div>
 
-  <div id="status">WebXR controleren…</div>
-  <button id="start" disabled>START AR</button>
+<div id="status">WebXR controleren…</div>
+<button id="start" disabled>START AR</button>
 
 <script type="module">
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
+
+const CUBE_SIZE_M = 0.05;
 
 const statusEl = document.getElementById("status");
 const startBtn = document.getElementById("start");
 const ui = document.getElementById("ui");
 
-const CUBE_SIZE_M = 0.05;
+let renderer = null;
+let scene = null;
+let camera = null;
+let controller = null;
+let reticle = null;
+let cubeGroup = null;
 
-let renderer, scene, camera, controller, reticle;
+let session = null;
 let hitTestSource = null;
 let hitTestSourceRequested = false;
-let session = null;
-let cubeGroup = null;
-let placed = false;
-let anchorSpace = null;
+let lastHitResult = null;
 
-function setStatus(msg) {
-  statusEl.textContent = msg;
-  console.log(msg);
+let anchor = null;
+let anchorSpace = null;
+let placed = false;
+let fallbackPose = null;
+
+function setStatus(message) {
+  statusEl.textContent = message;
+  console.log(message);
 }
 
 async function checkXR() {
@@ -97,29 +107,30 @@ async function checkXR() {
     return;
   }
   try {
-    const ok = await navigator.xr.isSessionSupported("immersive-ar");
-    startBtn.disabled = !ok;
-    setStatus(ok ? "AR beschikbaar. Druk op START AR." : "Immersive AR niet ondersteund.");
-  } catch (e) {
-    setStatus("WebXR-fout: " + e.message);
+    const supported = await navigator.xr.isSessionSupported("immersive-ar");
+    startBtn.disabled = !supported;
+    setStatus(supported ? "AR beschikbaar. Druk op START AR." : "Immersive AR niet ondersteund.");
+  } catch (err) {
+    setStatus("WebXR-fout: " + err.message);
   }
 }
 
-function createCubeGroup() {
+function makeCube() {
   const group = new THREE.Group();
 
-  const geo = new THREE.BoxGeometry(CUBE_SIZE_M, CUBE_SIZE_M, CUBE_SIZE_M);
-  const mat = new THREE.MeshStandardMaterial({
+  const geometry = new THREE.BoxGeometry(CUBE_SIZE_M, CUBE_SIZE_M, CUBE_SIZE_M);
+  const material = new THREE.MeshStandardMaterial({
     color: 0x1877f2,
     transparent: true,
-    opacity: 0.86,
-    roughness: 0.55
+    opacity: 0.88,
+    roughness: 0.5
   });
-  const mesh = new THREE.Mesh(geo, mat);
+
+  const mesh = new THREE.Mesh(geometry, material);
   group.add(mesh);
 
   const edges = new THREE.LineSegments(
-    new THREE.EdgesGeometry(geo),
+    new THREE.EdgesGeometry(geometry),
     new THREE.LineBasicMaterial({ color: 0xffffff })
   );
   group.add(edges);
@@ -140,12 +151,12 @@ function initThree() {
   document.body.insertBefore(renderer.domElement, document.body.firstChild);
 
   scene.add(new THREE.HemisphereLight(0xffffff, 0x777777, 2.2));
-  const dl = new THREE.DirectionalLight(0xffffff, 1.2);
-  dl.position.set(1, 2, 1);
-  scene.add(dl);
+  const directional = new THREE.DirectionalLight(0xffffff, 1.2);
+  directional.position.set(1, 2, 1);
+  scene.add(directional);
 
   reticle = new THREE.Mesh(
-    new THREE.RingGeometry(0.03, 0.04, 48).rotateX(-Math.PI / 2),
+    new THREE.RingGeometry(0.025, 0.035, 48).rotateX(-Math.PI / 2),
     new THREE.MeshBasicMaterial({ color: 0xffffff })
   );
   reticle.matrixAutoUpdate = false;
@@ -159,76 +170,102 @@ function initThree() {
   renderer.setAnimationLoop(onFrame);
 }
 
-async function onSelect() {
-  if (!reticle.visible) {
-    setStatus("Nog geen oppervlak gevonden.");
-    return;
-  }
-
-  // Plaatsing gebeurt maar één keer per sessie.
+async function onSelect(event) {
   if (placed) {
-    setStatus("Kubus staat al geplaatst en blijft op zijn plaats.");
+    setStatus("Kubus staat al geplaatst.");
     return;
   }
 
+  const frame = event.frame;
+  const refSpace = renderer.xr.getReferenceSpace();
+
+  // Gebruik indien mogelijk exact het hit-testresultaat van dit frame.
+  let hit = null;
+  if (frame && hitTestSource) {
+    const hits = frame.getHitTestResults(hitTestSource);
+    if (hits.length > 0) hit = hits[0];
+  }
+  if (!hit) hit = lastHitResult;
+
+  if (!hit) {
+    setStatus("Geen oppervlak op het moment van tikken.");
+    return;
+  }
+
+  const pose = hit.getPose(refSpace);
+  if (!pose) {
+    setStatus("Geen geldige hit-testpose.");
+    return;
+  }
+
+  cubeGroup = makeCube();
+  scene.add(cubeGroup);
+
+  // Fallback positie vanuit de hit-testpose.
+  const m = new THREE.Matrix4().fromArray(pose.transform.matrix);
   const p = new THREE.Vector3();
   const q = new THREE.Quaternion();
   const s = new THREE.Vector3();
-  reticle.matrix.decompose(p, q, s);
+  m.decompose(p, q, s);
 
-  cubeGroup = createCubeGroup();
+  p.y += CUBE_SIZE_M / 2;
+
   cubeGroup.position.copy(p);
-  cubeGroup.position.y += CUBE_SIZE_M / 2;
   cubeGroup.quaternion.identity();
-  scene.add(cubeGroup);
+  cubeGroup.visible = true;
+
+  fallbackPose = {
+    position: p.clone(),
+    quaternion: cubeGroup.quaternion.clone()
+  };
 
   placed = true;
-  setStatus("Kubus geplaatst: 5 × 5 × 5 cm.");
-
-  // De reticle mag verdwijnen na plaatsing.
   reticle.visible = false;
+  setStatus("Kubus geplaatst. Anchor wordt aangemaakt…");
 
-  // We vragen een anchor aan als dit beschikbaar is.
-  tryCreateAnchor();
-}
-
-async function tryCreateAnchor() {
-  if (!session) return;
-
-  // Anchor API zit nog niet overal op dezelfde manier. We proberen veilig een anchor op basis
-  // van de huidige kubuspose te maken als createAnchor beschikbaar is.
+  // Correcte anchor-methode: rechtstreeks op het hit-testresultaat.
   try {
-    const frame = renderer.xr.getFrame && renderer.xr.getFrame();
-    const refSpace = renderer.xr.getReferenceSpace();
-
-    if (!frame || !refSpace || !cubeGroup) {
-      setStatus("Kubus geplaatst. Anchor niet beschikbaar, standaard tracking wordt gebruikt.");
-      return;
-    }
-
-    if (typeof frame.createAnchor !== "function") {
-      setStatus("Kubus geplaatst. Anchor API niet beschikbaar, standaard tracking wordt gebruikt.");
-      return;
-    }
-
-    const transform = new XRRigidTransform(
-      { x: cubeGroup.position.x, y: cubeGroup.position.y, z: cubeGroup.position.z },
-      { x: 0, y: 0, z: 0, w: 1 }
-    );
-
-    const anchor = await frame.createAnchor(transform, refSpace);
-    if (anchor && anchor.anchorSpace) {
-      anchorSpace = anchor.anchorSpace;
-      setStatus("Kubus geplaatst en geankerd.");
+    if (typeof hit.createAnchor === "function") {
+      anchor = await hit.createAnchor();
+      if (anchor && anchor.anchorSpace) {
+        anchorSpace = anchor.anchorSpace;
+        setStatus("GEANKERD — kubus 5 × 5 × 5 cm.");
+      } else {
+        setStatus("GEEN ANCHOR — standaard tracking blijft actief.");
+      }
     } else {
-      setStatus("Kubus geplaatst. Anchor kon niet worden vastgelegd.");
+      setStatus("GEEN ANCHOR API — standaard tracking blijft actief.");
     }
   } catch (err) {
-    setStatus("Kubus geplaatst. Anchor fout: " + err.message);
+    setStatus("ANCHOR MISLUKT — standaard tracking: " + err.message);
   }
 }
 
-function onFrame(t, frame) {
+function updateAnchoredCube(frame, refSpace) {
+  if (!cubeGroup || !anchorSpace) return;
+
+  const pose = frame.getPose(anchorSpace, refSpace);
+  if (!pose) {
+    // Tracking kan tijdelijk wegvallen wanneer camera zicht verliest.
+    setStatus("Anchor tijdelijk niet zichtbaar — probeer omgeving opnieuw in beeld te brengen.");
+    return;
+  }
+
+  const matrix = new THREE.Matrix4().fromArray(pose.transform.matrix);
+  const p = new THREE.Vector3();
+  const q = new THREE.Quaternion();
+  const s = new THREE.Vector3();
+  matrix.decompose(p, q, s);
+
+  // Anchor zit op het oppervlak; kubus moet half zijn hoogte omhoog.
+  p.y += CUBE_SIZE_M / 2;
+
+  cubeGroup.position.copy(p);
+  cubeGroup.quaternion.identity();
+  cubeGroup.scale.set(1, 1, 1);
+}
+
+function onFrame(time, frame) {
   if (frame && session) {
     const refSpace = renderer.xr.getReferenceSpace();
 
@@ -241,29 +278,28 @@ function onFrame(t, frame) {
         .catch(err => {
           setStatus("Hit-test fout: " + err.message);
         });
+
       hitTestSourceRequested = true;
     }
 
-    // Als we een anchor hebben, volg exact de anchorpose.
     if (anchorSpace && cubeGroup) {
-      const anchorPose = frame.getPose(anchorSpace, refSpace);
-      if (anchorPose) {
-        cubeGroup.matrix.fromArray(anchorPose.transform.matrix);
-        cubeGroup.matrix.decompose(cubeGroup.position, cubeGroup.quaternion, cubeGroup.scale);
-      }
+      updateAnchoredCube(frame, refSpace);
     }
 
-    // Alleen zolang de kubus nog niet geplaatst is, tonen we de reticle.
     if (!placed && hitTestSource) {
       const hits = frame.getHitTestResults(hitTestSource);
+
       if (hits.length > 0) {
-        const pose = hits[0].getPose(refSpace);
+        lastHitResult = hits[0];
+
+        const pose = lastHitResult.getPose(refSpace);
         if (pose) {
           reticle.visible = true;
           reticle.matrix.fromArray(pose.transform.matrix);
-          setStatus("Oppervlak gevonden. Tik om de 5 cm kubus te plaatsen.");
+          setStatus("Oppervlak gevonden. Tik om 5 cm kubus te ankeren.");
         }
       } else {
+        lastHitResult = null;
         reticle.visible = false;
         setStatus("Beweeg rustig over de vloer…");
       }
@@ -279,23 +315,32 @@ startBtn.addEventListener("click", async () => {
 
     session = await navigator.xr.requestSession("immersive-ar", {
       requiredFeatures: ["hit-test"],
-      optionalFeatures: ["local-floor", "dom-overlay", "anchors"],
+      optionalFeatures: ["anchors", "local-floor", "dom-overlay"],
       domOverlay: { root: document.body }
     });
 
-    renderer.xr.setSession(session);
+    await renderer.xr.setSession(session);
+
     startBtn.style.display = "none";
     ui.style.display = "none";
     setStatus("Beweeg rustig over de vloer…");
 
     session.addEventListener("end", () => {
+      if (anchor && typeof anchor.delete === "function") {
+        try { anchor.delete(); } catch (_) {}
+      }
+
       session = null;
       hitTestSource = null;
       hitTestSourceRequested = false;
+      lastHitResult = null;
+      anchor = null;
       anchorSpace = null;
+      fallbackPose = null;
       placed = false;
 
       if (reticle) reticle.visible = false;
+
       if (cubeGroup) {
         scene.remove(cubeGroup);
         cubeGroup = null;
@@ -306,8 +351,8 @@ startBtn.addEventListener("click", async () => {
       setStatus("AR gestopt.");
     }, { once: true });
 
-  } catch (e) {
-    setStatus(e.name + ": " + e.message);
+  } catch (err) {
+    setStatus(err.name + ": " + err.message);
   }
 });
 

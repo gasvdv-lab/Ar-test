@@ -1,24 +1,31 @@
-# TESTING v0.2.1
+# TESTING v0.2.2
 
-Open de cachevrije link:
+Gebruik:
 
-https://gasvdv-lab.github.io/Ar-test/?v=021
+https://gasvdv-lab.github.io/Ar-test/?v=022
 
-## Teststappen
+## Test 1 — plaatsing
 
-1. Druk op **START AR**.
-2. Beweeg rustig over de vloer tot een witte ring verschijnt.
-3. Tik één keer om de kubus te plaatsen.
-4. Controleer dat de kubus klein is: **5 × 5 × 5 cm**.
-5. Beweeg daarna je gsm rond de kubus.
-6. Controleer dat de kubus op zijn plaats blijft en niet bij elke beweging opnieuw verplaatst.
+1. Druk op START AR.
+2. Scan de vloer.
+3. Wacht tot de witte ring zichtbaar is.
+4. Tik één keer.
+5. Controleer de melding.
 
-## Verwachte statusmeldingen
+Voorkeur:
+`GEANKERD — kubus 5 × 5 × 5 cm.`
 
-- "Oppervlak gevonden. Tik om de 5 cm kubus te plaatsen."
-- "Kubus geplaatst: 5 × 5 × 5 cm."
-- of "Kubus geplaatst en geankerd."
+## Test 2 — beweging
 
-## Opmerking
+1. Loop rustig links/rechts rond de kubus.
+2. Kom dichterbij en ga verder weg.
+3. De kubus moet op dezelfde fysieke plek blijven.
 
-Lichte trackingdrift kan in AR altijd nog voorkomen, maar de kubus hoort niet meer mee te bewegen alsof hij aan de gsm vastzit.
+## Test 3 — kort trackingverlies
+
+1. Bedek de camera ongeveer 1 seconde.
+2. Maak de camera weer vrij.
+3. Richt de camera opnieuw op dezelfde omgeving.
+4. Kijk of de kubus terug op dezelfde plek verschijnt.
+
+Stuur een screenshot van de statusmelding na plaatsing.
