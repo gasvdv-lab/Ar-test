@@ -1,22 +1,15 @@
-# TESTING — v0.1.1
+# TESTING
 
-Open:
+Open bij voorkeur de cachevrije URL:
 
-https://gasvdv-lab.github.io/Ar-test/
+https://gasvdv-lab.github.io/Ar-test/?v=012
 
-Controleer de regels:
+Verwacht:
+- JavaScript actief = JA
+- HTTPS / secure context = JA
+- navigator.xr aanwezig = JA of NEE
+- WebGL2 beschikbaar = JA of NEE
+- immersive-ar ondersteund = JA of NEE
 
-- Secure context (HTTPS)
-- navigator.xr aanwezig
-- WebGL2 beschikbaar
-- immersive-ar ondersteund
-
-Als immersive-ar = JA:
-
-1. Druk op START AR.
-2. Noteer of AR effectief opent.
-3. Als een foutmelding verschijnt, maak een screenshot.
-
-Als immersive-ar = NEE:
-
-Maak een screenshot van de volledige pagina. De diagnose is dan al voldoende om de volgende stap te bepalen.
+Als de automatische diagnose niet verschijnt, druk op TEST IMMERSIVE AR.
+Stuur daarna een screenshot van de volledige pagina.

@@ -1,29 +1,11 @@
-# Ar-test v0.1.1 — WebXR Diagnose
+# Ar-test v0.1.2
 
-Deze release is een diagnoseversie voor:
+Robuuste WebXR-diagnose zonder externe JavaScript-modules.
 
+Live:
 https://gasvdv-lab.github.io/Ar-test/
 
-## Doel
+Cachevrij:
+https://gasvdv-lab.github.io/Ar-test/?v=012
 
-Achterhalen waarom de knop START AR uitgeschakeld blijft.
-
-De pagina controleert:
-
-- HTTPS / secure context
-- `navigator.xr`
-- WebGL2
-- `navigator.xr.isSessionSupported("immersive-ar")`
-- browser/user-agent
-- directe `requestSession("immersive-ar")`
-- foutnaam en foutmelding wanneer starten mislukt
-
-## Installeren
-
-Vervang de huidige bestanden in de root van de GitHub-repository `Ar-test` door de bestanden uit deze ZIP.
-
-Daarna wachten tot GitHub Pages opnieuw gedeployed is en openen:
-
-https://gasvdv-lab.github.io/Ar-test/
-
-Maak daarna een screenshot van de volledige diagnosepagina.
+Upload `index.html` rechtstreeks naar de root van de GitHub-repository en vervang de vorige versie.
