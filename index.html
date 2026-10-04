@@ -4,67 +4,42 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#101010">
-<title>AR Kubus 5 cm — Anchor Placement</title>
+<title>AR Kubussen — stapeltest</title>
 <style>
   html, body {
-    margin: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    background: #101010;
-    color: #fff;
-    font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+    margin:0; width:100%; height:100%; overflow:hidden;
+    background:#101010; color:#fff;
+    font-family:system-ui,-apple-system,Segoe UI,sans-serif;
   }
   #ui {
-    position: fixed;
-    z-index: 3;
-    inset: 0 0 auto 0;
-    padding: 16px;
-    background: linear-gradient(to bottom, rgba(0,0,0,.82), rgba(0,0,0,0));
-    pointer-events: none;
+    position:fixed; z-index:3; inset:0 0 auto 0; padding:16px;
+    background:linear-gradient(to bottom,rgba(0,0,0,.82),rgba(0,0,0,0));
+    pointer-events:none;
   }
-  h1 { margin: 0 0 6px; font-size: 23px; }
-  p { margin: 4px 0; max-width: 760px; }
+  h1 { margin:0 0 6px; font-size:23px; }
+  p { margin:4px 0; max-width:760px; }
   #status {
-    position: fixed;
-    z-index: 4;
-    left: 50%;
-    bottom: 90px;
-    transform: translateX(-50%);
-    width: max-content;
-    max-width: calc(100vw - 36px);
-    padding: 10px 14px;
-    border-radius: 999px;
-    background: rgba(0,0,0,.76);
-    text-align: center;
-    font-size: 14px;
-    pointer-events: none;
+    position:fixed; z-index:4; left:50%; bottom:90px;
+    transform:translateX(-50%); width:max-content;
+    max-width:calc(100vw - 36px); padding:10px 14px;
+    border-radius:999px; background:rgba(0,0,0,.76);
+    text-align:center; font-size:14px; pointer-events:none;
   }
   #start {
-    position: fixed;
-    z-index: 5;
-    left: 50%;
-    bottom: 24px;
-    transform: translateX(-50%);
-    min-width: 180px;
-    min-height: 52px;
-    padding: 0 18px;
-    border: 1px solid #666;
-    border-radius: 10px;
-    background: #fff;
-    color: #111;
-    font-weight: 700;
-    font-size: 17px;
+    position:fixed; z-index:5; left:50%; bottom:24px;
+    transform:translateX(-50%); min-width:180px; min-height:52px;
+    padding:0 18px; border:1px solid #666; border-radius:10px;
+    background:#fff; color:#111; font-weight:700; font-size:17px;
   }
-  #start:disabled { opacity: .4; }
+  #start:disabled { opacity:.4; }
   canvas { display:block; }
 </style>
 </head>
 <body>
 <div id="ui">
-  <h1>AR Kubus — 5 cm</h1>
-  <p>v0.2.2 Anchor Placement</p>
-  <p>Tik één keer op een gedetecteerd oppervlak. De app probeert de kubus rechtstreeks aan het hit-testresultaat te ankeren.</p>
+  <h1>AR stapel — 5 kubussen</h1>
+  <p>Elke kubus is exact 5 × 5 × 5 cm.</p>
+  <p>Tik één keer op de vloer. Daarna verschijnt automatisch elke 5 seconden een extra kubus bovenop de vorige, tot maximaal vijf kubussen.</p>
 </div>
 
 <div id="status">WebXR controleren…</div>
@@ -74,18 +49,14 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
 
 const CUBE_SIZE_M = 0.05;
+const MAX_CUBES = 5;
+const INTERVAL_MS = 5000;
 
 const statusEl = document.getElementById("status");
 const startBtn = document.getElementById("start");
 const ui = document.getElementById("ui");
 
-let renderer = null;
-let scene = null;
-let camera = null;
-let controller = null;
-let reticle = null;
-let cubeGroup = null;
-
+let renderer, scene, camera, controller, reticle;
 let session = null;
 let hitTestSource = null;
 let hitTestSourceRequested = false;
@@ -93,12 +64,14 @@ let lastHitResult = null;
 
 let anchor = null;
 let anchorSpace = null;
+let stackRoot = null;
 let placed = false;
-let fallbackPose = null;
+let cubeCount = 0;
+let stackTimer = null;
 
-function setStatus(message) {
-  statusEl.textContent = message;
-  console.log(message);
+function setStatus(msg) {
+  statusEl.textContent = msg;
+  console.log(msg);
 }
 
 async function checkXR() {
@@ -107,17 +80,15 @@ async function checkXR() {
     return;
   }
   try {
-    const supported = await navigator.xr.isSessionSupported("immersive-ar");
-    startBtn.disabled = !supported;
-    setStatus(supported ? "AR beschikbaar. Druk op START AR." : "Immersive AR niet ondersteund.");
-  } catch (err) {
-    setStatus("WebXR-fout: " + err.message);
+    const ok = await navigator.xr.isSessionSupported("immersive-ar");
+    startBtn.disabled = !ok;
+    setStatus(ok ? "AR beschikbaar. Druk op START AR." : "Immersive AR niet ondersteund.");
+  } catch (e) {
+    setStatus("WebXR-fout: " + e.message);
   }
 }
 
-function makeCube() {
-  const group = new THREE.Group();
-
+function createCube(index) {
   const geometry = new THREE.BoxGeometry(CUBE_SIZE_M, CUBE_SIZE_M, CUBE_SIZE_M);
   const material = new THREE.MeshStandardMaterial({
     color: 0x1877f2,
@@ -126,6 +97,7 @@ function makeCube() {
     roughness: 0.5
   });
 
+  const group = new THREE.Group();
   const mesh = new THREE.Mesh(geometry, material);
   group.add(mesh);
 
@@ -135,15 +107,43 @@ function makeCube() {
   );
   group.add(edges);
 
+  // De onderkant van kubus 1 staat op y=0.
+  // Elke volgende kubus komt exact 5 cm hoger.
+  group.position.y = (CUBE_SIZE_M / 2) + (index * CUBE_SIZE_M);
+
   return group;
+}
+
+function addNextCube() {
+  if (!stackRoot || cubeCount >= MAX_CUBES) return;
+
+  const cube = createCube(cubeCount);
+  stackRoot.add(cube);
+  cubeCount += 1;
+
+  if (cubeCount < MAX_CUBES) {
+    setStatus("Kubus " + cubeCount + "/5 geplaatst. Volgende over 5 seconden…");
+  } else {
+    setStatus("Stapel compleet: 5 kubussen = 25 cm hoog.");
+    if (stackTimer) {
+      clearInterval(stackTimer);
+      stackTimer = null;
+    }
+  }
+}
+
+function startStacking() {
+  addNextCube(); // eerste kubus onmiddellijk
+  stackTimer = setInterval(() => {
+    addNextCube();
+  }, INTERVAL_MS);
 }
 
 function initThree() {
   scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.01, 20);
 
-  camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.01, 20);
-
-  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setSize(innerWidth, innerHeight);
   renderer.xr.enabled = true;
@@ -152,12 +152,12 @@ function initThree() {
 
   scene.add(new THREE.HemisphereLight(0xffffff, 0x777777, 2.2));
   const directional = new THREE.DirectionalLight(0xffffff, 1.2);
-  directional.position.set(1, 2, 1);
+  directional.position.set(1,2,1);
   scene.add(directional);
 
   reticle = new THREE.Mesh(
-    new THREE.RingGeometry(0.025, 0.035, 48).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ color: 0xffffff })
+    new THREE.RingGeometry(0.025, 0.035, 48).rotateX(-Math.PI/2),
+    new THREE.MeshBasicMaterial({ color:0xffffff })
   );
   reticle.matrixAutoUpdate = false;
   reticle.visible = false;
@@ -172,14 +172,13 @@ function initThree() {
 
 async function onSelect(event) {
   if (placed) {
-    setStatus("Kubus staat al geplaatst.");
+    setStatus("Stapel is al gestart.");
     return;
   }
 
   const frame = event.frame;
   const refSpace = renderer.xr.getReferenceSpace();
 
-  // Gebruik indien mogelijk exact het hit-testresultaat van dit frame.
   let hit = null;
   if (frame && hitTestSource) {
     const hits = frame.getHitTestResults(hitTestSource);
@@ -198,56 +197,46 @@ async function onSelect(event) {
     return;
   }
 
-  cubeGroup = makeCube();
-  scene.add(cubeGroup);
+  stackRoot = new THREE.Group();
+  scene.add(stackRoot);
 
-  // Fallback positie vanuit de hit-testpose.
-  const m = new THREE.Matrix4().fromArray(pose.transform.matrix);
+  const matrix = new THREE.Matrix4().fromArray(pose.transform.matrix);
   const p = new THREE.Vector3();
   const q = new THREE.Quaternion();
   const s = new THREE.Vector3();
-  m.decompose(p, q, s);
+  matrix.decompose(p, q, s);
 
-  p.y += CUBE_SIZE_M / 2;
-
-  cubeGroup.position.copy(p);
-  cubeGroup.quaternion.identity();
-  cubeGroup.visible = true;
-
-  fallbackPose = {
-    position: p.clone(),
-    quaternion: cubeGroup.quaternion.clone()
-  };
+  stackRoot.position.copy(p);
+  stackRoot.quaternion.identity();
 
   placed = true;
   reticle.visible = false;
-  setStatus("Kubus geplaatst. Anchor wordt aangemaakt…");
 
-  // Correcte anchor-methode: rechtstreeks op het hit-testresultaat.
   try {
     if (typeof hit.createAnchor === "function") {
       anchor = await hit.createAnchor();
       if (anchor && anchor.anchorSpace) {
         anchorSpace = anchor.anchorSpace;
-        setStatus("GEANKERD — kubus 5 × 5 × 5 cm.");
+        setStatus("GEANKERD — stapel start.");
       } else {
-        setStatus("GEEN ANCHOR — standaard tracking blijft actief.");
+        setStatus("Geen anchor — stapel start met standaard tracking.");
       }
     } else {
-      setStatus("GEEN ANCHOR API — standaard tracking blijft actief.");
+      setStatus("Geen Anchor API — stapel start met standaard tracking.");
     }
   } catch (err) {
-    setStatus("ANCHOR MISLUKT — standaard tracking: " + err.message);
+    setStatus("Anchor mislukt — stapel start met standaard tracking.");
   }
+
+  startStacking();
 }
 
-function updateAnchoredCube(frame, refSpace) {
-  if (!cubeGroup || !anchorSpace) return;
+function updateAnchor(frame, refSpace) {
+  if (!anchorSpace || !stackRoot) return;
 
   const pose = frame.getPose(anchorSpace, refSpace);
   if (!pose) {
-    // Tracking kan tijdelijk wegvallen wanneer camera zicht verliest.
-    setStatus("Anchor tijdelijk niet zichtbaar — probeer omgeving opnieuw in beeld te brengen.");
+    setStatus("Anchor tijdelijk niet zichtbaar — omgeving opnieuw in beeld brengen.");
     return;
   }
 
@@ -257,12 +246,9 @@ function updateAnchoredCube(frame, refSpace) {
   const s = new THREE.Vector3();
   matrix.decompose(p, q, s);
 
-  // Anchor zit op het oppervlak; kubus moet half zijn hoogte omhoog.
-  p.y += CUBE_SIZE_M / 2;
-
-  cubeGroup.position.copy(p);
-  cubeGroup.quaternion.identity();
-  cubeGroup.scale.set(1, 1, 1);
+  stackRoot.position.copy(p);
+  stackRoot.quaternion.identity();
+  stackRoot.scale.set(1,1,1);
 }
 
 function onFrame(time, frame) {
@@ -271,32 +257,25 @@ function onFrame(time, frame) {
 
     if (!hitTestSourceRequested) {
       session.requestReferenceSpace("viewer")
-        .then(viewerSpace => session.requestHitTestSource({ space: viewerSpace }))
-        .then(source => {
-          hitTestSource = source;
-        })
-        .catch(err => {
-          setStatus("Hit-test fout: " + err.message);
-        });
+        .then(viewerSpace => session.requestHitTestSource({ space:viewerSpace }))
+        .then(source => { hitTestSource = source; })
+        .catch(err => setStatus("Hit-test fout: " + err.message));
 
       hitTestSourceRequested = true;
     }
 
-    if (anchorSpace && cubeGroup) {
-      updateAnchoredCube(frame, refSpace);
-    }
+    if (anchorSpace) updateAnchor(frame, refSpace);
 
     if (!placed && hitTestSource) {
       const hits = frame.getHitTestResults(hitTestSource);
 
       if (hits.length > 0) {
         lastHitResult = hits[0];
-
         const pose = lastHitResult.getPose(refSpace);
         if (pose) {
           reticle.visible = true;
           reticle.matrix.fromArray(pose.transform.matrix);
-          setStatus("Oppervlak gevonden. Tik om 5 cm kubus te ankeren.");
+          setStatus("Oppervlak gevonden. Tik om de stapel te starten.");
         }
       } else {
         lastHitResult = null;
@@ -314,9 +293,9 @@ startBtn.addEventListener("click", async () => {
     if (!renderer) initThree();
 
     session = await navigator.xr.requestSession("immersive-ar", {
-      requiredFeatures: ["hit-test"],
-      optionalFeatures: ["anchors", "local-floor", "dom-overlay"],
-      domOverlay: { root: document.body }
+      requiredFeatures:["hit-test"],
+      optionalFeatures:["anchors","local-floor","dom-overlay"],
+      domOverlay:{ root:document.body }
     });
 
     await renderer.xr.setSession(session);
@@ -326,6 +305,11 @@ startBtn.addEventListener("click", async () => {
     setStatus("Beweeg rustig over de vloer…");
 
     session.addEventListener("end", () => {
+      if (stackTimer) {
+        clearInterval(stackTimer);
+        stackTimer = null;
+      }
+
       if (anchor && typeof anchor.delete === "function") {
         try { anchor.delete(); } catch (_) {}
       }
@@ -336,20 +320,20 @@ startBtn.addEventListener("click", async () => {
       lastHitResult = null;
       anchor = null;
       anchorSpace = null;
-      fallbackPose = null;
       placed = false;
+      cubeCount = 0;
 
       if (reticle) reticle.visible = false;
 
-      if (cubeGroup) {
-        scene.remove(cubeGroup);
-        cubeGroup = null;
+      if (stackRoot) {
+        scene.remove(stackRoot);
+        stackRoot = null;
       }
 
       startBtn.style.display = "";
       ui.style.display = "";
       setStatus("AR gestopt.");
-    }, { once: true });
+    }, { once:true });
 
   } catch (err) {
     setStatus(err.name + ": " + err.message);

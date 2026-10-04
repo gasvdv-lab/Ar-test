@@ -1,31 +1,18 @@
-# TESTING v0.2.2
+# TESTING v0.2.3
 
-Gebruik:
+Open:
 
-https://gasvdv-lab.github.io/Ar-test/?v=022
+https://gasvdv-lab.github.io/Ar-test/?v=023
 
-## Test 1 — plaatsing
+## Verwacht gedrag
 
-1. Druk op START AR.
-2. Scan de vloer.
-3. Wacht tot de witte ring zichtbaar is.
-4. Tik één keer.
-5. Controleer de melding.
-
-Voorkeur:
-`GEANKERD — kubus 5 × 5 × 5 cm.`
-
-## Test 2 — beweging
-
-1. Loop rustig links/rechts rond de kubus.
-2. Kom dichterbij en ga verder weg.
-3. De kubus moet op dezelfde fysieke plek blijven.
-
-## Test 3 — kort trackingverlies
-
-1. Bedek de camera ongeveer 1 seconde.
-2. Maak de camera weer vrij.
-3. Richt de camera opnieuw op dezelfde omgeving.
-4. Kijk of de kubus terug op dezelfde plek verschijnt.
-
-Stuur een screenshot van de statusmelding na plaatsing.
+1. Start AR.
+2. Zoek een vloeroppervlak.
+3. Tik één keer.
+4. Kubus 1 verschijnt onmiddellijk.
+5. Na 5 seconden verschijnt kubus 2 exact bovenop kubus 1.
+6. Daarna om de 5 seconden nog één kubus.
+7. Na kubus 5 stopt de timer.
+8. Elke kubus is 5 cm hoog.
+9. Totale hoogte is 25 cm.
+10. Beweeg rond de stapel en controleer of ze op dezelfde fysieke plaats blijft staan.

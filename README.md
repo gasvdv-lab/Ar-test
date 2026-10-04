@@ -1,14 +1,17 @@
-# Ar-test v0.2.2 — Anchor Placement
+# Ar-test v0.2.3 — 5 kubussen stapelen
 
-Doel: een kubus van exact **5 × 5 × 5 cm** zo stabiel mogelijk in de echte wereld plaatsen.
+Elke kubus is exact **5 × 5 × 5 cm**.
 
-## Belangrijkste wijziging
+Na één tik op een gedetecteerd oppervlak:
 
-v0.2.1 probeerde pas na plaatsing een anchor te maken.
+- kubus 1 verschijnt onmiddellijk;
+- na 5 seconden verschijnt kubus 2 erboven;
+- na nog eens 5 seconden kubus 3;
+- enzovoort;
+- maximaal 5 kubussen;
+- totale stapelhoogte = **25 cm**.
 
-v0.2.2 probeert de anchor nu **rechtstreeks op het WebXR hit-testresultaat te maken op het moment van tikken**.
-
-Dit is de technisch correcte anchor-flow voor WebXR wanneer `XRHitTestResult.createAnchor()` beschikbaar is.
+De volledige stapel gebruikt één plaatsingspunt / anchor zodat de kubussen onderling exact boven elkaar blijven.
 
 ## Live
 
@@ -16,14 +19,4 @@ Gewoon:
 https://gasvdv-lab.github.io/Ar-test/
 
 Cachevrij:
-https://gasvdv-lab.github.io/Ar-test/?v=022
-
-## Statusmeldingen
-
-Na plaatsing krijg je één van deze meldingen:
-
-- `GEANKERD — kubus 5 × 5 × 5 cm.`
-- `GEEN ANCHOR API — standaard tracking blijft actief.`
-- `ANCHOR MISLUKT — standaard tracking: ...`
-
-Als de camera tijdelijk wordt afgedekt, kan ook bij anchors de tracking tijdelijk verdwijnen. Zodra de omgeving weer herkenbaar is, kan ARCore proberen opnieuw te lokaliseren.
+https://gasvdv-lab.github.io/Ar-test/?v=023
