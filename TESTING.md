@@ -1,14 +1,24 @@
-# TESTING v0.2.0
+# TESTING v0.2.1
 
-Open:
-https://gasvdv-lab.github.io/Ar-test/?v=020
+Open de cachevrije link:
 
-1. START AR moet actief zijn.
-2. Druk START AR.
-3. Beweeg langzaam over een goed zichtbare vloer.
-4. Wacht tot een witte ring verschijnt.
-5. Tik.
-6. Er moet een blauwe kubus verschijnen.
-7. De kubus is softwarematig exact 50 × 50 × 50 cm.
-8. Loop rond de kubus en controleer dat hij ruimtelijk blijft staan.
-9. Tik opnieuw om hem op een andere gedetecteerde plek te zetten.
+https://gasvdv-lab.github.io/Ar-test/?v=021
+
+## Teststappen
+
+1. Druk op **START AR**.
+2. Beweeg rustig over de vloer tot een witte ring verschijnt.
+3. Tik één keer om de kubus te plaatsen.
+4. Controleer dat de kubus klein is: **5 × 5 × 5 cm**.
+5. Beweeg daarna je gsm rond de kubus.
+6. Controleer dat de kubus op zijn plaats blijft en niet bij elke beweging opnieuw verplaatst.
+
+## Verwachte statusmeldingen
+
+- "Oppervlak gevonden. Tik om de 5 cm kubus te plaatsen."
+- "Kubus geplaatst: 5 × 5 × 5 cm."
+- of "Kubus geplaatst en geankerd."
+
+## Opmerking
+
+Lichte trackingdrift kan in AR altijd nog voorkomen, maar de kubus hoort niet meer mee te bewegen alsof hij aan de gsm vastzit.

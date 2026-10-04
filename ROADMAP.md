@@ -1,11 +1,12 @@
 # ROADMAP
 
-## v0.2.0
-Werkende 50 cm kubus op WebXR hit-test.
+## v0.2.1
+- 5 cm kubus
+- poging tot anchor-based stabiliteit
 
-## Hierna
-- maatlijnen 500 mm
-- betere vloeroriëntatie
-- schaduw/contactvlak
-- schaalcontrole
+## Volgende stappen
+- maatlabel "5 cm"
 - meerdere objecten
+- resetknop
+- schaduw/contactvlak
+- visuele as- of meethulp
