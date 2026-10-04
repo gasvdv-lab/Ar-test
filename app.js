@@ -1,114 +1,168 @@
-const results = document.getElementById('results');
-const logEl = document.getElementById('log');
-const testButton = document.getElementById('testButton');
-const startButton = document.getElementById('startButton');
+import * as THREE from 'three';
+import { ARButton } from 'three/addons/webxr/ARButton.js';
 
-function line(label, value, status = 'warn') {
-  const row = document.createElement('div');
-  row.className = 'row';
+const statusEl = document.getElementById('status');
+const introEl = document.getElementById('intro');
 
-  const left = document.createElement('div');
-  left.textContent = label;
+const scene = new THREE.Scene();
 
-  const right = document.createElement('div');
-  right.className = `value ${status}`;
-  right.textContent = value;
+const camera = new THREE.PerspectiveCamera(
+  70,
+  window.innerWidth / window.innerHeight,
+  0.01,
+  20
+);
 
-  row.append(left, right);
-  results.appendChild(row);
-}
+const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+  alpha: true
+});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.xr.enabled = true;
+renderer.xr.setReferenceSpaceType('local');
+document.body.appendChild(renderer.domElement);
 
-function log(message) {
-  const time = new Date().toLocaleTimeString();
-  logEl.textContent += `\n[${time}] ${message}`;
-}
+scene.add(new THREE.HemisphereLight(0xffffff, 0x666666, 2.2));
 
-function yn(v) {
-  return v ? ['JA', 'ok'] : ['NEE', 'bad'];
-}
+const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5);
+directionalLight.position.set(1, 2, 1);
+scene.add(directionalLight);
 
-async function diagnose() {
-  results.innerHTML = '';
-  logEl.textContent = 'Diagnose gestart…';
+// Exact WebXR/world dimensions are in metres.
+// 0.5 m = 50 cm.
+const CUBE_SIZE_M = 0.5;
 
-  const secure = window.isSecureContext;
-  const [secureText, secureClass] = yn(secure);
-  line('Secure context (HTTPS)', secureText, secureClass);
+// The cube origin is at its centre. When placed on a floor,
+// move it up by half its height so its bottom rests on the surface.
+const cubeGeometry = new THREE.BoxGeometry(
+  CUBE_SIZE_M,
+  CUBE_SIZE_M,
+  CUBE_SIZE_M
+);
 
-  const hasNavigatorXR = 'xr' in navigator;
-  const [xrText, xrClass] = yn(hasNavigatorXR);
-  line('navigator.xr aanwezig', xrText, xrClass);
-
-  line('Protocol', location.protocol, location.protocol === 'https:' ? 'ok' : 'bad');
-  line('Host', location.host || '(geen)', 'warn');
-
-  const hasWebGL2 = (() => {
-    try {
-      const c = document.createElement('canvas');
-      return !!c.getContext('webgl2');
-    } catch {
-      return false;
-    }
-  })();
-  const [glText, glClass] = yn(hasWebGL2);
-  line('WebGL2 beschikbaar', glText, glClass);
-
-  line('Browser/User-Agent', navigator.userAgent, 'warn');
-
-  if (!hasNavigatorXR) {
-    line('immersive-ar ondersteund', 'NIET TE TESTEN', 'bad');
-    log('navigator.xr bestaat niet. De browser biedt de WebXR Device API niet aan.');
-    startButton.disabled = true;
-    return;
-  }
-
-  try {
-    log('navigator.xr.isSessionSupported("immersive-ar") wordt getest…');
-    const supported = await navigator.xr.isSessionSupported('immersive-ar');
-    const [sText, sClass] = yn(supported);
-    line('immersive-ar ondersteund', sText, sClass);
-
-    if (supported) {
-      log('immersive-ar wordt door de browser als ondersteund gemeld.');
-      startButton.disabled = false;
-    } else {
-      log('De browser meldt: immersive-ar NIET ondersteund.');
-      startButton.disabled = true;
-    }
-  } catch (err) {
-    line('immersive-ar test', 'FOUT', 'bad');
-    log(`Fout bij isSessionSupported: ${err.name}: ${err.message}`);
-    startButton.disabled = true;
-  }
-}
-
-testButton.addEventListener('click', diagnose);
-
-startButton.addEventListener('click', async () => {
-  if (!navigator.xr) {
-    log('START AR afgebroken: navigator.xr ontbreekt.');
-    return;
-  }
-
-  log('AR-sessie wordt rechtstreeks aangevraagd…');
-
-  try {
-    const session = await navigator.xr.requestSession('immersive-ar', {
-      requiredFeatures: ['hit-test'],
-      optionalFeatures: ['local-floor']
-    });
-
-    log('SUCCES: immersive-ar sessie gestart.');
-    alert('AR-sessie gestart. Deze diagnoseversie toont nog geen kubus.');
-
-    session.addEventListener('end', () => {
-      log('AR-sessie beëindigd.');
-    });
-
-  } catch (err) {
-    log(`START AR FOUT: ${err.name}: ${err.message}`);
-    alert(`AR kon niet starten:\n${err.name}: ${err.message}`);
-  }
+const cubeMaterial = new THREE.MeshStandardMaterial({
+  color: 0x1688ff,
+  roughness: 0.55,
+  metalness: 0.05,
+  transparent: true,
+  opacity: 0.78
 });
 
-diagnose();
+const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+cube.visible = false;
+scene.add(cube);
+
+// Crisp edges make the 50 cm volume easier to judge visually.
+const edges = new THREE.LineSegments(
+  new THREE.EdgesGeometry(cubeGeometry),
+  new THREE.LineBasicMaterial({ color: 0xffffff })
+);
+cube.add(edges);
+
+// Reticle showing where the detected real-world surface is.
+const reticle = new THREE.Mesh(
+  new THREE.RingGeometry(0.07, 0.09, 48).rotateX(-Math.PI / 2),
+  new THREE.MeshBasicMaterial({ color: 0xffffff })
+);
+reticle.matrixAutoUpdate = false;
+reticle.visible = false;
+scene.add(reticle);
+
+let hitTestSource = null;
+let hitTestSourceRequested = false;
+
+const controller = renderer.xr.getController(0);
+controller.addEventListener('select', () => {
+  if (!reticle.visible) {
+    statusEl.textContent = 'Nog geen oppervlak gevonden. Beweeg de telefoon rustig.';
+    return;
+  }
+
+  const p = new THREE.Vector3();
+  const q = new THREE.Quaternion();
+  const s = new THREE.Vector3();
+
+  reticle.matrix.decompose(p, q, s);
+
+  cube.position.copy(p);
+  cube.position.y += CUBE_SIZE_M / 2;
+
+  // Keep the cube upright relative to gravity/floor.
+  cube.rotation.set(0, 0, 0);
+  cube.visible = true;
+
+  statusEl.textContent = 'Kubus geplaatst: 50 × 50 × 50 cm. Tik opnieuw om hem te verplaatsen.';
+});
+scene.add(controller);
+
+const arButton = ARButton.createButton(renderer, {
+  requiredFeatures: ['hit-test'],
+  optionalFeatures: ['local-floor']
+});
+document.body.appendChild(arButton);
+
+renderer.xr.addEventListener('sessionstart', () => {
+  introEl.style.display = 'none';
+  statusEl.textContent = 'Zoek de vloer of een horizontaal oppervlak…';
+});
+
+renderer.xr.addEventListener('sessionend', () => {
+  introEl.style.display = '';
+  statusEl.textContent = 'AR gestopt.';
+  reticle.visible = false;
+  hitTestSource = null;
+  hitTestSourceRequested = false;
+});
+
+renderer.setAnimationLoop((time, frame) => {
+  if (frame) {
+    const referenceSpace = renderer.xr.getReferenceSpace();
+    const session = renderer.xr.getSession();
+
+    if (!hitTestSourceRequested) {
+      session.requestReferenceSpace('viewer').then((viewerSpace) => {
+        session.requestHitTestSource({ space: viewerSpace }).then((source) => {
+          hitTestSource = source;
+        });
+      });
+
+      session.addEventListener('end', () => {
+        hitTestSourceRequested = false;
+        hitTestSource = null;
+      }, { once: true });
+
+      hitTestSourceRequested = true;
+    }
+
+    if (hitTestSource) {
+      const hitTestResults = frame.getHitTestResults(hitTestSource);
+
+      if (hitTestResults.length > 0) {
+        const hit = hitTestResults[0];
+        const pose = hit.getPose(referenceSpace);
+
+        if (pose) {
+          reticle.visible = true;
+          reticle.matrix.fromArray(pose.transform.matrix);
+          if (!cube.visible) {
+            statusEl.textContent = 'Oppervlak gevonden. Tik om de kubus te plaatsen.';
+          }
+        }
+      } else {
+        reticle.visible = false;
+        if (!cube.visible) {
+          statusEl.textContent = 'Zoek de vloer of een horizontaal oppervlak…';
+        }
+      }
+    }
+  }
+
+  renderer.render(scene, camera);
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});

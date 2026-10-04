@@ -1,15 +1,14 @@
-# TESTING
+# TESTING v0.2.0
 
-Open bij voorkeur de cachevrije URL:
+Open:
+https://gasvdv-lab.github.io/Ar-test/?v=020
 
-https://gasvdv-lab.github.io/Ar-test/?v=012
-
-Verwacht:
-- JavaScript actief = JA
-- HTTPS / secure context = JA
-- navigator.xr aanwezig = JA of NEE
-- WebGL2 beschikbaar = JA of NEE
-- immersive-ar ondersteund = JA of NEE
-
-Als de automatische diagnose niet verschijnt, druk op TEST IMMERSIVE AR.
-Stuur daarna een screenshot van de volledige pagina.
+1. START AR moet actief zijn.
+2. Druk START AR.
+3. Beweeg langzaam over een goed zichtbare vloer.
+4. Wacht tot een witte ring verschijnt.
+5. Tik.
+6. Er moet een blauwe kubus verschijnen.
+7. De kubus is softwarematig exact 50 × 50 × 50 cm.
+8. Loop rond de kubus en controleer dat hij ruimtelijk blijft staan.
+9. Tik opnieuw om hem op een andere gedetecteerde plek te zetten.
