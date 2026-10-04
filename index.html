@@ -4,42 +4,39 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#101010">
-<title>AR Kubussen — stapeltest</title>
+<title>AR Stack — Rigid World Lock</title>
 <style>
-  html, body {
-    margin:0; width:100%; height:100%; overflow:hidden;
-    background:#101010; color:#fff;
-    font-family:system-ui,-apple-system,Segoe UI,sans-serif;
-  }
-  #ui {
-    position:fixed; z-index:3; inset:0 0 auto 0; padding:16px;
-    background:linear-gradient(to bottom,rgba(0,0,0,.82),rgba(0,0,0,0));
-    pointer-events:none;
-  }
-  h1 { margin:0 0 6px; font-size:23px; }
-  p { margin:4px 0; max-width:760px; }
-  #status {
-    position:fixed; z-index:4; left:50%; bottom:90px;
-    transform:translateX(-50%); width:max-content;
-    max-width:calc(100vw - 36px); padding:10px 14px;
-    border-radius:999px; background:rgba(0,0,0,.76);
-    text-align:center; font-size:14px; pointer-events:none;
-  }
-  #start {
-    position:fixed; z-index:5; left:50%; bottom:24px;
-    transform:translateX(-50%); min-width:180px; min-height:52px;
-    padding:0 18px; border:1px solid #666; border-radius:10px;
-    background:#fff; color:#111; font-weight:700; font-size:17px;
-  }
-  #start:disabled { opacity:.4; }
-  canvas { display:block; }
+html,body{
+  margin:0;width:100%;height:100%;overflow:hidden;background:#101010;color:#fff;
+  font-family:system-ui,-apple-system,Segoe UI,sans-serif
+}
+#ui{
+  position:fixed;z-index:3;inset:0 0 auto 0;padding:16px;
+  background:linear-gradient(to bottom,rgba(0,0,0,.84),rgba(0,0,0,0));
+  pointer-events:none
+}
+h1{margin:0 0 6px;font-size:23px}
+p{margin:4px 0;max-width:760px}
+#status{
+  position:fixed;z-index:4;left:50%;bottom:90px;transform:translateX(-50%);
+  width:max-content;max-width:calc(100vw - 36px);padding:10px 14px;
+  border-radius:999px;background:rgba(0,0,0,.78);text-align:center;font-size:14px;
+  pointer-events:none
+}
+#start{
+  position:fixed;z-index:5;left:50%;bottom:24px;transform:translateX(-50%);
+  min-width:180px;min-height:52px;padding:0 18px;border:1px solid #666;border-radius:10px;
+  background:#fff;color:#111;font-weight:700;font-size:17px
+}
+#start:disabled{opacity:.4}
+canvas{display:block}
 </style>
 </head>
 <body>
 <div id="ui">
-  <h1>AR stapel — 5 kubussen</h1>
-  <p>Elke kubus is exact 5 × 5 × 5 cm.</p>
-  <p>Tik één keer op de vloer. Daarna verschijnt automatisch elke 5 seconden een extra kubus bovenop de vorige, tot maximaal vijf kubussen.</p>
+  <h1>AR stapel — Rigid World Lock</h1>
+  <p>5 kubussen van exact 5 × 5 × 5 cm.</p>
+  <p>Na één tik wordt één wereldanker vastgelegd. Alle kubussen worden daarna uitsluitend lokaal boven datzelfde anker opgebouwd.</p>
 </div>
 
 <div id="status">WebXR controleren…</div>
@@ -56,108 +53,133 @@ const statusEl = document.getElementById("status");
 const startBtn = document.getElementById("start");
 const ui = document.getElementById("ui");
 
-let renderer, scene, camera, controller, reticle;
+let renderer = null;
+let scene = null;
+let camera = null;
+let controller = null;
+let reticle = null;
+
 let session = null;
 let hitTestSource = null;
 let hitTestSourceRequested = false;
 let lastHitResult = null;
 
-let anchor = null;
-let anchorSpace = null;
-let stackRoot = null;
+let worldRoot = null;
 let placed = false;
 let cubeCount = 0;
 let stackTimer = null;
 
-function setStatus(msg) {
+let anchor = null;
+let anchorSpace = null;
+let anchorCorrection = null;
+let desiredWorldMatrix = null;
+let lastGoodWorldMatrix = null;
+let anchorCalibrated = false;
+
+function setStatus(msg){
   statusEl.textContent = msg;
   console.log(msg);
 }
 
-async function checkXR() {
-  if (!navigator.xr) {
+async function checkXR(){
+  if(!navigator.xr){
     setStatus("WebXR niet beschikbaar.");
     return;
   }
-  try {
+  try{
     const ok = await navigator.xr.isSessionSupported("immersive-ar");
     startBtn.disabled = !ok;
     setStatus(ok ? "AR beschikbaar. Druk op START AR." : "Immersive AR niet ondersteund.");
-  } catch (e) {
-    setStatus("WebXR-fout: " + e.message);
+  }catch(err){
+    setStatus("WebXR-fout: " + err.message);
   }
 }
 
-function createCube(index) {
-  const geometry = new THREE.BoxGeometry(CUBE_SIZE_M, CUBE_SIZE_M, CUBE_SIZE_M);
-  const material = new THREE.MeshStandardMaterial({
-    color: 0x1877f2,
-    transparent: true,
-    opacity: 0.88,
-    roughness: 0.5
+function createCube(index){
+  const geo = new THREE.BoxGeometry(CUBE_SIZE_M, CUBE_SIZE_M, CUBE_SIZE_M);
+  const mat = new THREE.MeshStandardMaterial({
+    color:0x1877f2,
+    transparent:true,
+    opacity:0.90,
+    roughness:0.5
   });
 
   const group = new THREE.Group();
-  const mesh = new THREE.Mesh(geometry, material);
+
+  const mesh = new THREE.Mesh(geo, mat);
   group.add(mesh);
 
   const edges = new THREE.LineSegments(
-    new THREE.EdgesGeometry(geometry),
-    new THREE.LineBasicMaterial({ color: 0xffffff })
+    new THREE.EdgesGeometry(geo),
+    new THREE.LineBasicMaterial({color:0xffffff})
   );
   group.add(edges);
 
-  // De onderkant van kubus 1 staat op y=0.
-  // Elke volgende kubus komt exact 5 cm hoger.
-  group.position.y = (CUBE_SIZE_M / 2) + (index * CUBE_SIZE_M);
+  // LOKALE geometrie:
+  // onderkant kubus 1 op y=0, daarna exact 5 cm per niveau.
+  group.position.set(
+    0,
+    (CUBE_SIZE_M / 2) + (index * CUBE_SIZE_M),
+    0
+  );
 
   return group;
 }
 
-function addNextCube() {
-  if (!stackRoot || cubeCount >= MAX_CUBES) return;
+function addNextCube(){
+  if(!worldRoot || cubeCount >= MAX_CUBES) return;
 
-  const cube = createCube(cubeCount);
-  stackRoot.add(cube);
-  cubeCount += 1;
+  worldRoot.add(createCube(cubeCount));
+  cubeCount++;
 
-  if (cubeCount < MAX_CUBES) {
+  if(cubeCount < MAX_CUBES){
     setStatus("Kubus " + cubeCount + "/5 geplaatst. Volgende over 5 seconden…");
-  } else {
-    setStatus("Stapel compleet: 5 kubussen = 25 cm hoog.");
-    if (stackTimer) {
+  }else{
+    setStatus("Stapel compleet: 5 × 5 cm = 25 cm hoog.");
+    if(stackTimer){
       clearInterval(stackTimer);
       stackTimer = null;
     }
   }
 }
 
-function startStacking() {
-  addNextCube(); // eerste kubus onmiddellijk
-  stackTimer = setInterval(() => {
-    addNextCube();
-  }, INTERVAL_MS);
+function startStack(){
+  addNextCube();
+  stackTimer = setInterval(addNextCube, INTERVAL_MS);
 }
 
-function initThree() {
+function initThree(){
   scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(70, innerWidth/innerHeight, 0.01, 20);
 
-  renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+  camera = new THREE.PerspectiveCamera(
+    70,
+    innerWidth / innerHeight,
+    0.01,
+    20
+  );
+
+  renderer = new THREE.WebGLRenderer({
+    antialias:true,
+    alpha:true
+  });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setSize(innerWidth, innerHeight);
   renderer.xr.enabled = true;
+
+  // local-floor is stabieler voor een vloergebonden constructie.
   renderer.xr.setReferenceSpaceType("local-floor");
+
   document.body.insertBefore(renderer.domElement, document.body.firstChild);
 
   scene.add(new THREE.HemisphereLight(0xffffff, 0x777777, 2.2));
-  const directional = new THREE.DirectionalLight(0xffffff, 1.2);
-  directional.position.set(1,2,1);
-  scene.add(directional);
+
+  const dl = new THREE.DirectionalLight(0xffffff, 1.2);
+  dl.position.set(1,2,1);
+  scene.add(dl);
 
   reticle = new THREE.Mesh(
     new THREE.RingGeometry(0.025, 0.035, 48).rotateX(-Math.PI/2),
-    new THREE.MeshBasicMaterial({ color:0xffffff })
+    new THREE.MeshBasicMaterial({color:0xffffff})
   );
   reticle.matrixAutoUpdate = false;
   reticle.visible = false;
@@ -170,9 +192,9 @@ function initThree() {
   renderer.setAnimationLoop(onFrame);
 }
 
-async function onSelect(event) {
-  if (placed) {
-    setStatus("Stapel is al gestart.");
+async function onSelect(event){
+  if(placed){
+    setStatus("World Lock staat al vast. De stapel wordt niet opnieuw verplaatst.");
     return;
   }
 
@@ -180,104 +202,132 @@ async function onSelect(event) {
   const refSpace = renderer.xr.getReferenceSpace();
 
   let hit = null;
-  if (frame && hitTestSource) {
-    const hits = frame.getHitTestResults(hitTestSource);
-    if (hits.length > 0) hit = hits[0];
-  }
-  if (!hit) hit = lastHitResult;
 
-  if (!hit) {
+  if(frame && hitTestSource){
+    const hits = frame.getHitTestResults(hitTestSource);
+    if(hits.length > 0) hit = hits[0];
+  }
+
+  if(!hit) hit = lastHitResult;
+
+  if(!hit){
     setStatus("Geen oppervlak op het moment van tikken.");
     return;
   }
 
-  const pose = hit.getPose(refSpace);
-  if (!pose) {
+  const hitPose = hit.getPose(refSpace);
+  if(!hitPose){
     setStatus("Geen geldige hit-testpose.");
     return;
   }
 
-  stackRoot = new THREE.Group();
-  scene.add(stackRoot);
+  // Dit is vanaf nu onze geometrische waarheid.
+  desiredWorldMatrix = new THREE.Matrix4().fromArray(hitPose.transform.matrix);
+  lastGoodWorldMatrix = desiredWorldMatrix.clone();
 
-  const matrix = new THREE.Matrix4().fromArray(pose.transform.matrix);
-  const p = new THREE.Vector3();
-  const q = new THREE.Quaternion();
-  const s = new THREE.Vector3();
-  matrix.decompose(p, q, s);
-
-  stackRoot.position.copy(p);
-  stackRoot.quaternion.identity();
+  worldRoot = new THREE.Group();
+  worldRoot.matrixAutoUpdate = false;
+  worldRoot.matrix.copy(desiredWorldMatrix);
+  scene.add(worldRoot);
 
   placed = true;
   reticle.visible = false;
 
-  try {
-    if (typeof hit.createAnchor === "function") {
+  // Vanaf nu NOOIT meer een hit-test gebruiken om de constructie te verplaatsen.
+  lastHitResult = null;
+  if(hitTestSource && typeof hitTestSource.cancel === "function"){
+    try{ hitTestSource.cancel(); }catch(_){}
+  }
+  hitTestSource = null;
+
+  setStatus("World Lock vastgelegd. Anchor wordt gekoppeld…");
+
+  try{
+    if(typeof hit.createAnchor === "function"){
       anchor = await hit.createAnchor();
-      if (anchor && anchor.anchorSpace) {
+
+      if(anchor && anchor.anchorSpace){
         anchorSpace = anchor.anchorSpace;
-        setStatus("GEANKERD — stapel start.");
-      } else {
-        setStatus("Geen anchor — stapel start met standaard tracking.");
+        setStatus("Anchor beschikbaar. Rigid World Lock actief.");
+      }else{
+        setStatus("Geen anchor-space. Vaste world pose wordt gebruikt.");
       }
-    } else {
-      setStatus("Geen Anchor API — stapel start met standaard tracking.");
+    }else{
+      setStatus("Geen Anchor API. Vaste world pose wordt gebruikt.");
     }
-  } catch (err) {
-    setStatus("Anchor mislukt — stapel start met standaard tracking.");
+  }catch(err){
+    setStatus("Anchor mislukt. Vaste world pose blijft behouden.");
   }
 
-  startStacking();
+  // De bouwlogica verandert ALLEEN lokale child-posities.
+  startStack();
 }
 
-function updateAnchor(frame, refSpace) {
-  if (!anchorSpace || !stackRoot) return;
+function updateWorldLock(frame, refSpace){
+  if(!worldRoot) return;
 
-  const pose = frame.getPose(anchorSpace, refSpace);
-  if (!pose) {
-    setStatus("Anchor tijdelijk niet zichtbaar — omgeving opnieuw in beeld brengen.");
+  // Zonder anchor blijft de laatst bekende vaste world-matrix staan.
+  if(!anchorSpace){
+    if(lastGoodWorldMatrix) worldRoot.matrix.copy(lastGoodWorldMatrix);
     return;
   }
 
-  const matrix = new THREE.Matrix4().fromArray(pose.transform.matrix);
-  const p = new THREE.Vector3();
-  const q = new THREE.Quaternion();
-  const s = new THREE.Vector3();
-  matrix.decompose(p, q, s);
+  const anchorPose = frame.getPose(anchorSpace, refSpace);
 
-  stackRoot.position.copy(p);
-  stackRoot.quaternion.identity();
-  stackRoot.scale.set(1,1,1);
+  // Bij tijdelijk trackingverlies NIET resetten, NIET herplaatsen.
+  // Gewoon de laatst goede transform bevriezen.
+  if(!anchorPose){
+    if(lastGoodWorldMatrix) worldRoot.matrix.copy(lastGoodWorldMatrix);
+    return;
+  }
+
+  const anchorMatrix = new THREE.Matrix4().fromArray(anchorPose.transform.matrix);
+
+  // NO-JUMP CALIBRATION:
+  // Het eerste geldige anchor-frame kan minimaal verschillen van de hit-testpose.
+  // Bereken éénmalig een correctiematrix zodat de constructie niet springt.
+  if(!anchorCalibrated){
+    const invAnchor = anchorMatrix.clone().invert();
+    anchorCorrection = invAnchor.multiply(desiredWorldMatrix.clone());
+    anchorCalibrated = true;
+  }
+
+  const correctedWorld = anchorMatrix.clone().multiply(anchorCorrection);
+  worldRoot.matrix.copy(correctedWorld);
+  lastGoodWorldMatrix.copy(correctedWorld);
 }
 
-function onFrame(time, frame) {
-  if (frame && session) {
+function onFrame(time, frame){
+  if(frame && session){
     const refSpace = renderer.xr.getReferenceSpace();
 
-    if (!hitTestSourceRequested) {
+    // Alleen vóór plaatsing hebben we hit testing nodig.
+    if(!placed && !hitTestSourceRequested){
       session.requestReferenceSpace("viewer")
-        .then(viewerSpace => session.requestHitTestSource({ space:viewerSpace }))
-        .then(source => { hitTestSource = source; })
+        .then(viewerSpace => session.requestHitTestSource({space:viewerSpace}))
+        .then(source => {
+          hitTestSource = source;
+        })
         .catch(err => setStatus("Hit-test fout: " + err.message));
 
       hitTestSourceRequested = true;
     }
 
-    if (anchorSpace) updateAnchor(frame, refSpace);
-
-    if (!placed && hitTestSource) {
+    if(placed){
+      updateWorldLock(frame, refSpace);
+    }else if(hitTestSource){
       const hits = frame.getHitTestResults(hitTestSource);
 
-      if (hits.length > 0) {
+      if(hits.length > 0){
         lastHitResult = hits[0];
         const pose = lastHitResult.getPose(refSpace);
-        if (pose) {
+
+        if(pose){
           reticle.visible = true;
           reticle.matrix.fromArray(pose.transform.matrix);
-          setStatus("Oppervlak gevonden. Tik om de stapel te starten.");
+          setStatus("Oppervlak gevonden. Tik om de World Lock vast te leggen.");
         }
-      } else {
+      }else{
         lastHitResult = null;
         reticle.visible = false;
         setStatus("Beweeg rustig over de vloer…");
@@ -288,14 +338,47 @@ function onFrame(time, frame) {
   renderer.render(scene, camera);
 }
 
-startBtn.addEventListener("click", async () => {
-  try {
-    if (!renderer) initThree();
+function resetState(){
+  if(stackTimer){
+    clearInterval(stackTimer);
+    stackTimer = null;
+  }
 
-    session = await navigator.xr.requestSession("immersive-ar", {
+  if(anchor && typeof anchor.delete === "function"){
+    try{ anchor.delete(); }catch(_){}
+  }
+
+  session = null;
+  hitTestSource = null;
+  hitTestSourceRequested = false;
+  lastHitResult = null;
+
+  anchor = null;
+  anchorSpace = null;
+  anchorCorrection = null;
+  desiredWorldMatrix = null;
+  lastGoodWorldMatrix = null;
+  anchorCalibrated = false;
+
+  placed = false;
+  cubeCount = 0;
+
+  if(reticle) reticle.visible = false;
+
+  if(worldRoot){
+    scene.remove(worldRoot);
+    worldRoot = null;
+  }
+}
+
+startBtn.addEventListener("click", async () => {
+  try{
+    if(!renderer) initThree();
+
+    session = await navigator.xr.requestSession("immersive-ar",{
       requiredFeatures:["hit-test"],
       optionalFeatures:["anchors","local-floor","dom-overlay"],
-      domOverlay:{ root:document.body }
+      domOverlay:{root:document.body}
     });
 
     await renderer.xr.setSession(session);
@@ -304,44 +387,20 @@ startBtn.addEventListener("click", async () => {
     ui.style.display = "none";
     setStatus("Beweeg rustig over de vloer…");
 
-    session.addEventListener("end", () => {
-      if (stackTimer) {
-        clearInterval(stackTimer);
-        stackTimer = null;
-      }
-
-      if (anchor && typeof anchor.delete === "function") {
-        try { anchor.delete(); } catch (_) {}
-      }
-
-      session = null;
-      hitTestSource = null;
-      hitTestSourceRequested = false;
-      lastHitResult = null;
-      anchor = null;
-      anchorSpace = null;
-      placed = false;
-      cubeCount = 0;
-
-      if (reticle) reticle.visible = false;
-
-      if (stackRoot) {
-        scene.remove(stackRoot);
-        stackRoot = null;
-      }
-
+    session.addEventListener("end",() => {
+      resetState();
       startBtn.style.display = "";
       ui.style.display = "";
       setStatus("AR gestopt.");
-    }, { once:true });
+    },{once:true});
 
-  } catch (err) {
+  }catch(err){
     setStatus(err.name + ": " + err.message);
   }
 });
 
-addEventListener("resize", () => {
-  if (!renderer || !camera) return;
+addEventListener("resize",() => {
+  if(!renderer || !camera) return;
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);

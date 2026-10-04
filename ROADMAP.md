@@ -1,16 +1,16 @@
 # ROADMAP
 
-## v0.2.3
-- vijf kubussen
-- 5 cm per kubus
-- eerste onmiddellijk
-- volgende telkens na 5 seconden
-- totaal 25 cm
-- gezamenlijke anchor/fallback tracking
+## v0.2.4 — Rigid World Lock Stack
+- één vaste hit-testpose
+- één worldRoot
+- één anchor
+- no-jump anchorcalibratie
+- geen hit-tests na plaatsing
+- laatst goede transform bevriezen bij trackingverlies
+- vijf lokale kubussen met interval van 5 seconden
 
-## Mogelijke volgende stap
-- kubussen één voor één laten vallen
-- animatie tussen niveaus
-- verschillende kleuren per kubus
-- resetknop
-- teller/tijdsaanduiding
+## Volgende mogelijke optimalisaties
+- detecteren van tracking quality / relocalization
+- visuele waarschuwing bij trackingverlies
+- persistent anchor / geospatial fallback
+- reset/herplaats-knop
