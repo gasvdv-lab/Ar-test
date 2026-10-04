@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111111" />
+  <title>AR Kubus 50 cm</title>
+  <link rel="stylesheet" href="./style.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <main id="intro">
+    <h1>AR Kubus — 50 cm</h1>
+    <p>Plaats een kubus van exact <strong>0,50 × 0,50 × 0,50 m</strong> op een gedetecteerd oppervlak.</p>
+    <p class="hint">Open deze pagina op een WebXR/AR-compatibele Androidtelefoon. Druk daarna op <strong>START AR</strong>.</p>
+  </main>
+
+  <div id="status" aria-live="polite">AR nog niet gestart.</div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
